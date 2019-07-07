@@ -1,4 +1,4 @@
-# truss
+
 
 program truss
 
@@ -193,8 +193,16 @@ end do
 
 !ガセットプレート厚さ
 do i = 1,6
-thick(5,i) = max(thick(1,i),thick(1,i+1),thick(2,i),thick(3,i))
+if(i == 1) then
+thick(5,i) = max(thick(1,i),thick(2,i),thick(3,i))
+thick(6,i) = max(thick(2,i),thick(4,i))
+else if(i < 6) then
+thick(5,i) = max(thick(1,i),thick(1,i-1),thick(2,i),thick(3,i))
 thick(6,i) = max(thick(2,i),thick(3,i-1),thick(4,i-1),thick(4,i))
+else
+thick(5,i) = max(thick(1,i-1),thick(2,i))
+thick(6,i) = max(thick(2,i),thick(3,i-1),thick(4,i-1))
+end if
 if(thick(5,i) < 3.2D0) then
 thick(5,i) = 3.2D0
 end if
