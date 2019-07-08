@@ -1,15 +1,13 @@
-
-
 program truss
 
 implicit none
 real :: L0,P,Pe,fs,fl,fc,ft,ffp,ffc,ffs
-real :: updown,weight_min,rax,ray,rlx,lem
-real :: L(4,6),N(4,6),rivet(17,2),element(31,6),An(17,31),lambda(17,31),omega(17,31),fk(17,31),diameter(4,6),anc(9,6)
-real :: Rs1(17),Rs2(17),Rl(17),tmin(17),weight(17,31),e1(17),e2(17),rivet_pitch(17)
-real :: lk(17),g1(17),g2(17),length(4,6),width(4,6),thick(6,6)
+real :: updown,rax,ray,rlx,lem
+real :: L(4,6),N(4,6),rivet(17,2),element(40,6),An(17,40),lambda(17,40),omega(17,40),fk(17,40),diameter(4,6),anc(9,6)
+real :: Rs1(17),Rs2(17),Rl(17),tmin(17),weight(17,40),e1(17),e2(17),rivet_pitch(17)
+real :: lk(17),g1(17),g2(17),length(4,6),width(4,6),thick(6,6),weight_min(4,6)
 integer :: number(17),num(4,6),a_number(2)
-real :: alpha,pi
+real :: alpha,pi,total_weight
 integer :: i,j,k,m
 
 fs = 120D0 !MPa
@@ -43,19 +41,21 @@ end if
 open(10,file="rivet.dat")
 do i = 1,17
 read(10,*) rivet(i,1:2)
-e1(i) = 5D0 / 3D0 * (rivet(i,1) + 5D0)
-e2(i) = 5D0 / 3D0 * (rivet(i,1) - 1D0)
-rivet_pitch(i) = 2.5 * rivet(i,1)
+e1(i) = 5D0 / 3D0 * (rivet(i,1) + 5D0) !mm
+e2(i) = 5D0 / 3D0 * (rivet(i,1) - 1D0) !mm
+rivet_pitch(i) = 2.5 * rivet(i,1) !mm
 end do
 close(10)
 
+weight_min = 1000000
+
 do i = 1,17
-Rs1(i) = fs * pi * (rivet(i,2)**2) / 4D0 !一面剪断
-Rs2(i) = fs * 2D0 * pi * (rivet(i,2)**2) / 4D0 !二面剪断
+Rs1(i) = fs * pi * (rivet(i,2)**2) / 4D0 !N !一面剪断 
+Rs2(i) = fs * 2D0 * pi * (rivet(i,2)**2) / 4D0 !N !二面剪断
 end do
 
 open(11,file="element.dat")
-do i=1,31
+do i=1,40
 read(11,*) element(i,1:6)
 end do
 close(11)
@@ -63,8 +63,6 @@ close(11)
 !Deside number of rivet
 do i = 1,4
 do j = 1,6
-
-weight_min = 10000000
 
 if(N(i,j) > 0) then !引張
 
@@ -78,24 +76,23 @@ else
 number(k) = ceiling(abs(N(i,j)*1000)/Rs1(k)) !一面剪断
 end if
 
-g1(k) = (e1(k) + (rivet_pitch(k) * (number(k) - 1))) * 2D0 !ガセットプレートが覆う長さ
-!g2(k) = (e1(k) + (rivet_pitch(k) * (ceiling((number(k) / 2D0)) - 1))) * 2
-!lk(k) = L(i,j) - 2D0 * (e2(k) + rivet_pitch(k) * (number(k) - 1)) !(部材の長さ)-(ガセットプレートが覆う長さ)
-Rl(k) = N(i,j)/dble(number(k)) !リベット1本あたりの剪断力
-tmin(k) = Rl(k) / (fl * rivet(i,2)) !最小厚さ
-do m = 1,31
-An(k,m) = element(m,3) - rivet(k,2) * element(m,2) !有効断面積
-if(N(i,j)/An(k,m) <= ft & !有効断面積が満たすべき条件
+g1(k) = (e1(k) * 2 + (rivet_pitch(k) * (ceiling(dble(number(k))/2) - 1))) * 2D0 !mm !ガセットプレートが覆う長さ
+Rl(k) = N(i,j) * 1000 / dble(number(k)) !N !リベット1本あたりの剪断力
+tmin(k) = Rl(k) / (fl * rivet(i,2)) !mm !最小厚さ
+
+do m = 1,40
+An(k,m) = element(m,3) - (rivet(k,2) * element(m,2) * 2) !mm^2 !有効断面積
+if(N(i,j) * 1000 / An(k,m) <= ft & !有効断面積が満たすべき条件
  .and. element(m,2) >= tmin(k) & !部材の厚さが満たすべき条件
  .and. rivet(k,1) <= element(m,6) & !リベット径が満たすべき条件 
  .and. g1(k) < (L(i,j) * 0.21 * 1000D0) & !ガセットプレートが覆う長さが満たす範囲
- .and. number(k) <= 6  & !リベットの本数が満たすべき条件
- .and. 2 * element(m,2) <= 10 * rivet(k,2)) then !板の総厚が満たすべき条件
+ .and. number(k) <= 12  & !リベットの本数が満たすべき条件
+ .and. 2 * element(m,2) <= (10 * rivet(k,2))) then !板の総厚が満たすべき条件
 
 weight(k,m) = element(m,5) * L(i,j) !部材の重量
 
-if(weight(k,m) < weight_min) then
-weight_min = weight(k,m)
+if(weight(k,m) < weight_min(i,j)) then
+weight_min(i,j) = weight(k,m)
 width(i,j) = element(m,1)
 thick(i,j) = element(m,2)
 num(i,j) = number(k)
@@ -121,11 +118,11 @@ else
 number(k) = ceiling(abs(N(i,j)*1000)/Rs1(k))
 end if
 
-g1(k) = (e1(k) + (rivet_pitch(k) * (number(k) - 1))) * 2
-g2(k) = (e1(k) + (rivet_pitch(k) * (ceiling((number(k) / 2D0)) - 1))) * 2
+g1(k) = (2 * e1(k) + (rivet_pitch(k) * (dble(number(k))/2 - 1))) * 2
+g2(k) = (2 * e1(k) + (rivet_pitch(k) * (ceiling((number(k) / 2D0)) - 1))) * 2
 lk(k) = L(i,j) - 2D0 * (e2(k) + rivet_pitch(k) * (number(k) - 1))
-Rl(k) = abs(N(i,j))/dble(number(k))
-tmin(k) = Rl(k)/rivet(i,2)
+Rl(k) = abs(N(i,j)) * 1000 / dble(number(k))
+tmin(k) = Rl(k)/(rivet(i,2) * fl)
 do m = 1,31
 
 lambda(k,m) = lk(k) / element(m,4)
@@ -143,17 +140,17 @@ end if
 
 omega(k,m) = fc / fk(k,m)
 
-if(abs(N(i,j)) * omega(k,m) / element(m,3) <= fc & !座屈しないための条件
+if(abs(N(i,j) * 1000) * omega(k,m) / element(m,3) <= fc & !座屈しないための条件
  .and. element(m,2) >= tmin(k) & !部材の厚さが満たすべき条件
  .and. rivet(k,1) <= element(m,6) & !リベット径が満たすべき条件 
- .and. g1(k) < (L(i,j) * 0.2 * 1000) & !ガセットプレートが覆う長さが満たす範囲
+ .and. g1(k) < (L(i,j) * 0.20 * 1000) & !ガセットプレートが覆う長さが満たす範囲
  .and. number(k) <= 6 & !リベットの本数が満たすべき条件
  .and. 2 * element(m,2) <= 10 * rivet(k,2)) then !板の総厚が満たすべき条件
 
 weight(k,m) = element(m,5) * L(i,j) !部材の重量
 
-if(weight(k,m) < weight_min) then
-weight_min = weight(k,m)
+if(weight(k,m) < weight_min(i,j)) then
+weight_min(i,j) = weight(k,m)
 width(i,j) = element(m,1)
 thick(i,j) = element(m,2) 
 num = number(k)
@@ -176,6 +173,7 @@ write(*,*) "Diameter of rivet = ",diameter(i,j)
 write(*,*) "Length covered by gusset plate : ",length(i,j)
 write(*,*) "Width of element : ",width(i,j)
 write(*,*) "Thickness of element",thick(i,j)
+write(*,*) "Weight of element",weight_min(i,j)
 write(*,*) "Percentage of length",length(i,j) / (L(i,j)*10) 
 else if(i == 2) then
 write(*,*) "L(",i,",",j,") = ", L(i,j) * 1000
@@ -185,6 +183,7 @@ write(*,*) "Diameter of rivet = ",diameter(i,j)
 write(*,*) "Length covered by gusset plate : ",length(i,j)
 write(*,*) "Width of element : ",width(i,j)
 write(*,*) "Thickness of element",thick(i,j)
+write(*,*) "Weight of element",weight_min(i,j)
 write(*,*) "Percentage of length",length(i,j) / (L(i,j)*10) 
 end if
 
@@ -243,6 +242,16 @@ write(*,*) "Length of anchor bolt",lem
 
 end do
 close(12)
+
+do i = 1,4
+do j = 1,6
+if(weight_min(i,j) < 1000000) then
+total_weight = total_weight + weight_min(i,j)
+end if
+end do
+end do
+
+write(*,*) "Total weight of elements :",total_weight
 
 end program
 
