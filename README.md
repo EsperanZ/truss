@@ -61,7 +61,7 @@ end do
 close(11)
 
 !Deside number of rivet
-do i = 1,4
+do i = 2,2
 do j = 1,6
 
 if(N(i,j) > 0) then !引張
@@ -135,7 +135,7 @@ if(N(i,j) < 0D0) then !圧縮
 do k = 1,17
 
 if( i == 1 ) then
-number(k) = ceiling(abs(N(i,j)*1000)/Rs1(k))
+number(k) = ceiling(abs(N(i,j)*1000)/Rs2(k))
 else if( i == 4 ) then
 number(k) = ceiling(abs(N(i,j)*1000)/Rs2(k))
 else
